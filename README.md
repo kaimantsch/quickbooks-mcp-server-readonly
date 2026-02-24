@@ -1,6 +1,10 @@
-# QuickBooks Online MCP Server
+# QuickBooks Online MCP Server (Read-Only Fork)
 
-This is a Model Context Protocol (MCP) server implementation for QuickBooks Online integration.
+This is a **read-only** fork of [intuit/quickbooks-online-mcp-server](https://github.com/intuit/quickbooks-online-mcp-server). All create, update, and delete operations have been removed at the source level. This server can only query and retrieve QuickBooks data.
+
+## Why?
+
+QuickBooks Online's OAuth scopes don't offer a read-only option. The `com.intuit.quickbooks.accounting` scope grants full read/write access. This fork enforces read-only access at the application layer by removing all write tools from the MCP server, so an LLM connected via MCP literally has no write operations available to call.
 
 ## Setup
 
@@ -13,7 +17,7 @@ npm install
 ```env
 QUICKBOOKS_CLIENT_ID=your_client_id
 QUICKBOOKS_CLIENT_SECRET=your_client_secret
-QUICKBOOKS_ENVIRONMENT=sandbox
+QUICKBOOKS_ENVIRONMENT=production
 ```
 
 3. Get your Client ID and Client Secret:
@@ -24,11 +28,9 @@ QUICKBOOKS_ENVIRONMENT=sandbox
 
 ## Authentication
 
-There are two ways to authenticate with QuickBooks Online:
-
 ### Option 1: Using Environment Variables
 
-If you already have a refresh token and realm ID, you can add them directly to your `.env` file:
+If you already have a refresh token and realm ID, add them to your `.env` file:
 
 ```env
 QUICKBOOKS_REFRESH_TOKEN=your_refresh_token
@@ -37,41 +39,35 @@ QUICKBOOKS_REALM_ID=your_realm_id
 
 ### Option 2: Using the OAuth Flow
 
-If you don't have a refresh token, you can use the built-in OAuth flow:
+If you don't have a refresh token, use the built-in OAuth flow. This will open your browser for QuickBooks authentication and save the tokens to your `.env` file.
 
-This will:
-- Start a temporary local server
-- Open your default browser automatically
-- Redirect you to QuickBooks for authentication
-- Save the tokens to your `.env` file once authenticated
-- Close automatically when complete
+## Available Tools (Read-Only)
 
-## Usage
+All tools are **read-only**. No tool in this server can create, modify, or delete any QuickBooks data.
 
-After authentication is set up, you can use the MCP server to interact with QuickBooks Online. The server provides various tools for managing customers, estimates, bills, and more.
+| Entity | Tools |
+|--------|-------|
+| Account | `search_accounts` |
+| Bill | `get_bill`, `search_bills` |
+| Bill Payment | `get_bill_payment`, `search_bill_payments` |
+| Customer | `get_customer`, `search_customers` |
+| Employee | `get_employee`, `search_employees` |
+| Estimate | `get_estimate`, `search_estimates` |
+| Invoice | `read_invoice`, `search_invoices` |
+| Item | `read_item`, `search_items` |
+| Journal Entry | `get_journal_entry`, `search_journal_entries` |
+| Purchase | `get_purchase`, `search_purchases` |
+| Vendor | `get_vendor`, `search_vendors` |
 
-## Available Tools
+**Total: 21 read-only tools** (down from 50+ in the upstream repo).
 
-Added tools for Create, Delete, Get, Search, Update for the following entities:
+## What Was Removed
 
-
-- Account
-- Bill Payment
-- Bill
-- Customer
-- Employee
-- Estimate
-- Invoice
-- Item
-- Journal Entry
-- Purchase
-- Vendor
-
+All `create_*`, `update_*`, and `delete_*` tools and their handler implementations were deleted from source. This is not a runtime toggle; the code to perform writes does not exist in this fork.
 
 ## Error Handling
 
-If you see an error message like "QuickBooks not connected", make sure to:
+If you see "QuickBooks not connected":
 
 1. Check that your `.env` file contains all required variables
 2. Verify that your tokens are valid and not expired
-

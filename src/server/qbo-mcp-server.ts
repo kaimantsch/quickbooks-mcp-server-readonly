@@ -8,7 +8,7 @@ export class QuickbooksMCPServer {
   public static GetServer(): McpServer {
     if (QuickbooksMCPServer.instance === null) {
       QuickbooksMCPServer.instance = new McpServer({
-        name: "QuickBooks Online MCP Server",
+        name: "QuickBooks Online MCP Server (Read-Only)",
         version: "1.0.0",
         capabilities: {
           tools: {},
