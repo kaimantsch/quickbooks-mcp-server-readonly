@@ -39,7 +39,25 @@ QUICKBOOKS_REALM_ID=your_realm_id
 
 ### Option 2: Using the OAuth Flow
 
-If you don't have a refresh token, use the built-in OAuth flow. This will open your browser for QuickBooks authentication and save the tokens to your `.env` file.
+If you don't have a refresh token, use the built-in OAuth flow:
+
+1. Make sure your `.env` file has `QUICKBOOKS_CLIENT_ID` and `QUICKBOOKS_CLIENT_SECRET` set (see Setup above).
+
+2. Build the project if you haven't already:
+```bash
+npm run build
+```
+
+3. Run the auth server:
+```bash
+node dist/auth-server.js
+```
+
+4. A browser window will open and prompt you to sign in to your Intuit/QuickBooks account and authorize the app.
+
+5. After authorizing, the callback saves your `QUICKBOOKS_REFRESH_TOKEN` and `QUICKBOOKS_REALM_ID` to the `.env` file automatically.
+
+**Note:** QuickBooks uses rotating refresh tokens. Each time the server refreshes its access token, a new refresh token is issued and the previous one is invalidated. The server handles this automatically by saving updated tokens to `.env` after each refresh.
 
 ## Available Tools (Read-Only)
 

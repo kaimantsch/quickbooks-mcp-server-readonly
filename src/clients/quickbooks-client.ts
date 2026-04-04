@@ -185,13 +185,20 @@ class QuickbooksClient {
     try {
       // At this point we know refreshToken is not undefined
       const authResponse = await this.oauthClient.refreshUsingToken(this.refreshToken);
-      
+
       this.accessToken = authResponse.token.access_token;
-      
+
+      // QuickBooks uses rotating refresh tokens -- save the new one
+      const tokenData = authResponse.token as Record<string, any>;
+      if (tokenData.refresh_token) {
+        this.refreshToken = tokenData.refresh_token;
+        this.saveTokensToEnv();
+      }
+
       // Calculate expiry time
       const expiresIn = authResponse.token.expires_in || 3600; // Default to 1 hour
       this.accessTokenExpiry = new Date(Date.now() + expiresIn * 1000);
-      
+
       return {
         access_token: this.accessToken,
         expires_in: expiresIn,
