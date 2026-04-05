@@ -22,8 +22,12 @@ export async function searchQuickbooksEmployees(params: any): Promise<ToolRespon
             error: formatError(err),
           });
         } else {
+          const list = employees?.QueryResponse?.Employee || [];
+          const sanitized = list.map(
+            ({ SSN, PrimaryAddr, PrimaryPhone, Mobile, PrimaryEmailAddr, BirthDate, ...rest }: any) => rest,
+          );
           resolve({
-            result: employees,
+            result: { ...employees, QueryResponse: { ...employees.QueryResponse, Employee: sanitized } },
             isError: false,
             error: null,
           });

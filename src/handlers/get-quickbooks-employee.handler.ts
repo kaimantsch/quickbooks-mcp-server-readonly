@@ -19,8 +19,9 @@ export async function getQuickbooksEmployee(id: string): Promise<ToolResponse<an
             error: formatError(err),
           });
         } else {
+          const { SSN, PrimaryAddr, PrimaryPhone, Mobile, PrimaryEmailAddr, BirthDate, ...sanitized } = employee;
           resolve({
-            result: employee,
+            result: sanitized,
             isError: false,
             error: null,
           });
