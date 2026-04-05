@@ -83,6 +83,19 @@ All tools are **read-only**. No tool in this server can create, modify, or delet
 
 All `create_*`, `update_*`, and `delete_*` tools and their handler implementations were deleted from source. This is not a runtime toggle; the code to perform writes does not exist in this fork.
 
+## PII Filtering
+
+In addition to being read-only, this server strips sensitive personally identifiable information (PII) from Employee responses before they reach the MCP client. The following fields are removed from both `get_employee` and `search_employees` results:
+
+- `SSN`
+- `PrimaryAddr`
+- `PrimaryPhone`
+- `Mobile`
+- `PrimaryEmailAddr`
+- `BirthDate`
+
+This filtering happens in the handler layer so these fields never leave the server.
+
 ## Error Handling
 
 If you see "QuickBooks not connected":
