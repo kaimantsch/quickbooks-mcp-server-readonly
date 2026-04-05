@@ -2,7 +2,7 @@
 
 This is a **read-only** fork of [intuit/quickbooks-online-mcp-server](https://github.com/intuit/quickbooks-online-mcp-server). All create, update, and delete operations have been removed at the source level. This server can only query and retrieve QuickBooks data.
 
-In addition to being read-only, this server strips sensitive personally identifiable information (PII) from responses before they reach the MCP client.
+In addition to being read-only, this server strips sensitive personally identifiable information (PII) from all responses at the client layer -- regardless of whether data is accessed via MCP tools, direct client calls, or skill queries.
 
 ## Why?
 
@@ -87,18 +87,50 @@ All `create_*`, `update_*`, and `delete_*` tools and their handler implementatio
 
 ## PII Filtering
 
-In addition to being read-only, this server strips sensitive personally identifiable information (PII) from responses before they reach the MCP client.
+In addition to being read-only, this server strips sensitive personally identifiable information (PII) from all responses at the client layer -- regardless of whether data is accessed via MCP tools, direct client calls, or skill queries.
 
-**Employee** (`get_employee`, `search_employees`) -- stripped fields:
+### How it works
+
+PII filtering is implemented in the **client layer** (`src/clients/quickbooks-client.ts`) using a Proxy that wraps the raw `node-quickbooks` SDK instance. Every call to `getCustomer`, `findCustomers`, `getEmployee`, `findEmployees`, `getVendor`, or `findVendors` has its callback automatically intercepted and sanitized before results reach the caller.
+
+The sanitization logic lives in `src/helpers/sanitize-pii.ts`.
+
+### Stripped fields by entity
+
+**Customer** (`getCustomer`, `findCustomers`) -- stripped fields:
+- `PrimaryAddr`, `BillAddr`, `ShipAddr`, `PrimaryPhone`, `Mobile`, `PrimaryEmailAddr`, `BirthDate`
+
+**Employee** (`getEmployee`, `findEmployees`) -- stripped fields:
 - `SSN`, `PrimaryAddr`, `PrimaryPhone`, `Mobile`, `PrimaryEmailAddr`, `BirthDate`
 
-**Customer** (`get_customer`, `search_customers`) -- stripped fields:
-- `PrimaryAddr`, `PrimaryPhone`, `Mobile`, `PrimaryEmailAddr`, `BirthDate`
-
-**Vendor** (`get_vendor`, `search_vendors`) -- stripped fields:
+**Vendor** (`getVendor`, `findVendors`) -- stripped fields:
 - `PrimaryAddr`, `PrimaryPhone`, `Mobile`, `Fax`, `PrimaryEmailAddr`, `AcctNum`
 
-This filtering happens in the handler layer so these fields never leave the server.
+These fields are removed before data leaves the client, so no code path can leak PII.
+
+## Testing
+
+Tests live in the `test/` directory and use [Vitest](https://vitest.dev/).
+
+Run the full suite:
+```bash
+npm test
+```
+
+Run in watch mode (re-runs on file changes):
+```bash
+npm run test:watch
+```
+
+### What's covered
+
+The test suite (`test/sanitize-pii.test.ts`) verifies PII filtering across all layers:
+
+- **Unit tests** for `sanitizeCustomer`, `sanitizeEmployee`, `sanitizeVendor` -- confirms each function strips the correct fields, preserves safe fields, and doesn't mutate the original object
+- **wrapCallback tests** -- verifies callback wrapping for both single-entity (get) and search (find) methods, including error passthrough and edge cases
+- **Proxy integration tests** -- simulates the full Proxy-based filtering pipeline that the client uses, confirming PII is stripped end-to-end and non-PII methods pass through untouched
+
+No QuickBooks credentials or network access needed -- all tests use mock data.
 
 ## Error Handling
 

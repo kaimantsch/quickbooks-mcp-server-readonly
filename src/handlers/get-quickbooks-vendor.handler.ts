@@ -1,6 +1,7 @@
 import { quickbooksClient } from "../clients/quickbooks-client.js";
 import { ToolResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
+import { sanitizeVendor } from "../helpers/sanitize-pii.js";
 
 /**
  * Get a vendor by ID from QuickBooks Online
@@ -19,9 +20,8 @@ export async function getQuickbooksVendor(id: string): Promise<ToolResponse<any>
             error: formatError(err),
           });
         } else {
-          const { PrimaryAddr, PrimaryPhone, Mobile, Fax, PrimaryEmailAddr, AcctNum, ...sanitized } = vendor;
           resolve({
-            result: sanitized,
+            result: sanitizeVendor(vendor),
             isError: false,
             error: null,
           });
@@ -35,4 +35,4 @@ export async function getQuickbooksVendor(id: string): Promise<ToolResponse<any>
       error: formatError(error),
     };
   }
-} 
+}

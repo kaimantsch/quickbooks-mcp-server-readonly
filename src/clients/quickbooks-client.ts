@@ -6,6 +6,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import open from 'open';
+import { wrapCallback } from '../helpers/sanitize-pii.js';
 
 dotenv.config();
 
@@ -226,7 +227,7 @@ class QuickbooksClient {
     }
     
     // At this point we know all tokens are available
-    this.quickbooksInstance = new QuickBooks(
+    const rawInstance = new QuickBooks(
       this.clientId,
       this.clientSecret,
       this.accessToken,
@@ -238,10 +239,48 @@ class QuickbooksClient {
       '2.0', // oauth version
       this.refreshToken
     );
-    
+
+    this.quickbooksInstance = this.wrapWithPiiFilter(rawInstance);
     return this.quickbooksInstance;
   }
   
+  /**
+   * Wraps a raw QuickBooks instance in a Proxy that automatically sanitizes
+   * PII from Customer, Employee, and Vendor responses. Every method call
+   * that matches get/find + EntityName has its callback wrapped.
+   */
+  private wrapWithPiiFilter(qb: QuickBooks): QuickBooks {
+    // Maps method name prefixes to { entityType, isSearch }
+    const METHOD_MAP: Record<string, { entity: string; isSearch: boolean }> = {
+      getCustomer:     { entity: 'Customer',  isSearch: false },
+      findCustomers:   { entity: 'Customer',  isSearch: true },
+      getEmployee:     { entity: 'Employee',  isSearch: false },
+      findEmployees:   { entity: 'Employee',  isSearch: true },
+      getVendor:       { entity: 'Vendor',    isSearch: false },
+      findVendors:     { entity: 'Vendor',    isSearch: true },
+    };
+
+    return new Proxy(qb, {
+      get(target: any, prop: string) {
+        const original = target[prop];
+        const mapping = METHOD_MAP[prop];
+
+        if (typeof original === 'function' && mapping) {
+          return (...args: any[]) => {
+            // The callback is always the last argument
+            const lastIdx = args.length - 1;
+            if (lastIdx >= 0 && typeof args[lastIdx] === 'function') {
+              args[lastIdx] = wrapCallback(mapping.entity, mapping.isSearch, args[lastIdx]);
+            }
+            return original.apply(target, args);
+          };
+        }
+
+        return original;
+      },
+    });
+  }
+
   getQuickbooks() {
     if (!this.quickbooksInstance) {
       throw new Error('Quickbooks not authenticated. Call authenticate() first');

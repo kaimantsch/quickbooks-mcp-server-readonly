@@ -1,17 +1,18 @@
 import { quickbooksClient } from "../clients/quickbooks-client.js";
 import { ToolResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
+import { sanitizeVendor } from "../helpers/sanitize-pii.js";
 
 /**
  * Search vendors from QuickBooks Online.
  *
  * Accepts either:
- *   • A plain criteria object (key/value pairs) – passed directly to findVendors
- *   • An **array** of objects in the `{ field, value, operator? }` shape – this
+ *   - A plain criteria object (key/value pairs) -- passed directly to findVendors
+ *   - An **array** of objects in the `{ field, value, operator? }` shape -- this
  *     allows use of operators such as `IN`, `LIKE`, `>`, `<`, `>=`, `<=` etc.
  *
  * Pagination / sorting options such as `limit`, `offset`, `asc`, `desc`,
- * `fetchAll`, `count` can be supplied via the top‑level criteria object or as
+ * `fetchAll`, `count` can be supplied via the top-level criteria object or as
  * dedicated entries in the array form.
  */
 export async function searchQuickbooksVendors(criteria: object | Array<Record<string, any>> = {}): Promise<ToolResponse<any[]>> {
@@ -29,11 +30,8 @@ export async function searchQuickbooksVendors(criteria: object | Array<Record<st
           });
         } else {
           const list = vendors?.QueryResponse?.Vendor ?? [];
-          const sanitized = Array.isArray(list)
-            ? list.map(({ PrimaryAddr, PrimaryPhone, Mobile, Fax, PrimaryEmailAddr, AcctNum, ...rest }: any) => rest)
-            : list;
           resolve({
-            result: sanitized,
+            result: Array.isArray(list) ? list.map(sanitizeVendor) : list,
             isError: false,
             error: null,
           });
@@ -47,4 +45,4 @@ export async function searchQuickbooksVendors(criteria: object | Array<Record<st
       error: formatError(error),
     };
   }
-} 
+}

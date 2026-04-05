@@ -1,6 +1,7 @@
 import { quickbooksClient } from "../clients/quickbooks-client.js";
 import { ToolResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
+import { sanitizeCustomer } from "../helpers/sanitize-pii.js";
 
 /**
  * Retrieve a single customer by Id from QuickBooks Online
@@ -19,9 +20,8 @@ export async function getQuickbooksCustomer(id: string): Promise<ToolResponse<an
             error: formatError(err),
           });
         } else {
-          const { PrimaryAddr, PrimaryPhone, Mobile, PrimaryEmailAddr, BirthDate, ...sanitized } = customer;
           resolve({
-            result: sanitized,
+            result: sanitizeCustomer(customer),
             isError: false,
             error: null,
           });
@@ -35,4 +35,4 @@ export async function getQuickbooksCustomer(id: string): Promise<ToolResponse<an
       error: formatError(error),
     };
   }
-} 
+}
