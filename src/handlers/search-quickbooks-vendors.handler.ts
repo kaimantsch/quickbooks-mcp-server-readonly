@@ -2,6 +2,7 @@ import { quickbooksClient } from "../clients/quickbooks-client.js";
 import { ToolResponse } from "../types/tool-response.js";
 import { formatError } from "../helpers/format-error.js";
 import { sanitizeVendor } from "../helpers/sanitize-pii.js";
+import { buildQuickbooksSearchCriteria, QuickbooksSearchCriteriaInput } from "../helpers/build-quickbooks-search-criteria.js";
 
 /**
  * Search vendors from QuickBooks Online.
@@ -15,13 +16,14 @@ import { sanitizeVendor } from "../helpers/sanitize-pii.js";
  * `fetchAll`, `count` can be supplied via the top-level criteria object or as
  * dedicated entries in the array form.
  */
-export async function searchQuickbooksVendors(criteria: object | Array<Record<string, any>> = {}): Promise<ToolResponse<any[]>> {
+export async function searchQuickbooksVendors(criteria: QuickbooksSearchCriteriaInput = {}): Promise<ToolResponse<any[]>> {
   try {
+    const normalizedCriteria = buildQuickbooksSearchCriteria(criteria);
     await quickbooksClient.authenticate();
     const quickbooks = quickbooksClient.getQuickbooks();
 
     return new Promise((resolve) => {
-      (quickbooks as any).findVendors(criteria as any, (err: any, vendors: any) => {
+      (quickbooks as any).findVendors(normalizedCriteria as any, (err: any, vendors: any) => {
         if (err) {
           resolve({
             result: null,

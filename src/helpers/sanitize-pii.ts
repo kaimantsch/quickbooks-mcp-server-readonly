@@ -8,6 +8,9 @@
 const CUSTOMER_PII_FIELDS = ['PrimaryAddr', 'PrimaryPhone', 'Mobile', 'PrimaryEmailAddr', 'BirthDate', 'BillAddr', 'ShipAddr'] as const;
 const EMPLOYEE_PII_FIELDS = ['SSN', 'PrimaryAddr', 'PrimaryPhone', 'Mobile', 'PrimaryEmailAddr', 'BirthDate'] as const;
 const VENDOR_PII_FIELDS   = ['PrimaryAddr', 'PrimaryPhone', 'Mobile', 'Fax', 'PrimaryEmailAddr', 'AcctNum'] as const;
+const INVOICE_PII_FIELDS  = ['BillAddr', 'ShipAddr', 'BillEmail', 'RemitToAddr', 'ShipFromAddr'] as const;
+const ESTIMATE_PII_FIELDS = ['BillAddr', 'ShipAddr', 'BillEmail', 'RemitToAddr', 'ShipFromAddr'] as const;
+const BILL_PII_FIELDS     = ['VendorAddr', 'RemitToAddr', 'ShipAddr'] as const;
 
 function stripFields<T extends Record<string, any>>(obj: T, fields: readonly string[]): Partial<T> {
   const copy = { ...obj };
@@ -29,6 +32,18 @@ export function sanitizeVendor(vendor: Record<string, any>): Record<string, any>
   return stripFields(vendor, VENDOR_PII_FIELDS);
 }
 
+export function sanitizeInvoice(invoice: Record<string, any>): Record<string, any> {
+  return stripFields(invoice, INVOICE_PII_FIELDS);
+}
+
+export function sanitizeEstimate(estimate: Record<string, any>): Record<string, any> {
+  return stripFields(estimate, ESTIMATE_PII_FIELDS);
+}
+
+export function sanitizeBill(bill: Record<string, any>): Record<string, any> {
+  return stripFields(bill, BILL_PII_FIELDS);
+}
+
 /**
  * Entity type -> sanitizer mapping, keyed by the QuickBooks method name patterns.
  */
@@ -36,6 +51,9 @@ const METHOD_SANITIZERS: Record<string, (obj: Record<string, any>) => Record<str
   Customer: sanitizeCustomer,
   Employee: sanitizeEmployee,
   Vendor: sanitizeVendor,
+  Invoice: sanitizeInvoice,
+  Estimate: sanitizeEstimate,
+  Bill: sanitizeBill,
 };
 
 /**

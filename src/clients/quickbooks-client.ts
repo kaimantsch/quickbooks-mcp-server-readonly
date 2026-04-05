@@ -245,38 +245,92 @@ class QuickbooksClient {
   }
   
   /**
-   * Wraps a raw QuickBooks instance in a Proxy that automatically sanitizes
-   * PII from Customer, Employee, and Vendor responses. Every method call
-   * that matches get/find + EntityName has its callback wrapped.
+   * Read-only method allowlist. Only these methods can be called through the
+   * proxy. Any method not on this list (create*, update*, delete*, void*,
+   * send*, batch, upload, etc.) is blocked, providing defense in depth
+   * against the full read/write OAuth scope.
+   */
+  private static readonly ALLOWED_METHODS = new Set([
+    // find (search) methods used by handlers
+    'findAccounts',
+    'findBillPayments',
+    'findBills',
+    'findCustomers',
+    'findEmployees',
+    'findEstimates',
+    'findInvoices',
+    'findItems',
+    'findJournalEntries',
+    'findPurchases',
+    'findVendors',
+    // get (single entity) methods used by handlers
+    'getAccount',
+    'getBill',
+    'getBillPayment',
+    'getCustomer',
+    'getEmployee',
+    'getEstimate',
+    'getInvoice',
+    'getItem',
+    'getJournalEntry',
+    'getPurchase',
+    'getVendor',
+  ]);
+
+  /**
+   * Wraps a raw QuickBooks instance in a Proxy that:
+   * 1. Blocks all write methods (create, update, delete, void, send, etc.)
+   * 2. Sanitizes PII from Customer, Employee, and Vendor responses
    */
   private wrapWithPiiFilter(qb: QuickBooks): QuickBooks {
-    // Maps method name prefixes to { entityType, isSearch }
-    const METHOD_MAP: Record<string, { entity: string; isSearch: boolean }> = {
+    const allowedMethods = QuickbooksClient.ALLOWED_METHODS;
+
+    // Maps method names to PII sanitization config
+    const PII_MAP: Record<string, { entity: string; isSearch: boolean }> = {
       getCustomer:     { entity: 'Customer',  isSearch: false },
       findCustomers:   { entity: 'Customer',  isSearch: true },
       getEmployee:     { entity: 'Employee',  isSearch: false },
       findEmployees:   { entity: 'Employee',  isSearch: true },
       getVendor:       { entity: 'Vendor',    isSearch: false },
       findVendors:     { entity: 'Vendor',    isSearch: true },
+      getInvoice:      { entity: 'Invoice',   isSearch: false },
+      findInvoices:    { entity: 'Invoice',   isSearch: true },
+      getEstimate:     { entity: 'Estimate',  isSearch: false },
+      findEstimates:   { entity: 'Estimate',  isSearch: true },
+      getBill:         { entity: 'Bill',       isSearch: false },
+      findBills:       { entity: 'Bill',       isSearch: true },
     };
 
     return new Proxy(qb, {
       get(target: any, prop: string) {
         const original = target[prop];
-        const mapping = METHOD_MAP[prop];
 
-        if (typeof original === 'function' && mapping) {
+        // Non-function properties (e.g. config values) pass through
+        if (typeof original !== 'function') {
+          return original;
+        }
+
+        // Block any method not on the allowlist
+        if (!allowedMethods.has(prop)) {
+          return () => {
+            throw new Error(`Blocked: ${prop} is not allowed. This server is read-only.`);
+          };
+        }
+
+        // If this method needs PII sanitization, wrap the callback
+        const piiMapping = PII_MAP[prop];
+        if (piiMapping) {
           return (...args: any[]) => {
-            // The callback is always the last argument
             const lastIdx = args.length - 1;
             if (lastIdx >= 0 && typeof args[lastIdx] === 'function') {
-              args[lastIdx] = wrapCallback(mapping.entity, mapping.isSearch, args[lastIdx]);
+              args[lastIdx] = wrapCallback(piiMapping.entity, piiMapping.isSearch, args[lastIdx]);
             }
             return original.apply(target, args);
           };
         }
 
-        return original;
+        // Allowed method without PII concerns -- bind and return
+        return original.bind(target);
       },
     });
   }

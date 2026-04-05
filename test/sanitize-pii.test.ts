@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sanitizeCustomer, sanitizeEmployee, sanitizeVendor, wrapCallback } from '../src/helpers/sanitize-pii.js';
+import { sanitizeCustomer, sanitizeEmployee, sanitizeVendor, sanitizeInvoice, sanitizeEstimate, sanitizeBill, wrapCallback } from '../src/helpers/sanitize-pii.js';
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -158,6 +158,115 @@ describe('sanitizeVendor', () => {
 });
 
 // ---------------------------------------------------------------------------
+// sanitizeInvoice
+// ---------------------------------------------------------------------------
+
+describe('sanitizeInvoice', () => {
+  const INVOICE_PII = ['BillAddr', 'ShipAddr', 'BillEmail', 'RemitToAddr', 'ShipFromAddr'];
+
+  function makeInvoice(overrides: Record<string, any> = {}) {
+    return {
+      Id: '130',
+      DocNumber: '1037',
+      TxnDate: '2026-02-27',
+      TotalAmt: 362.07,
+      Balance: 362.07,
+      CustomerRef: { value: '24', name: 'Sonnenschein Family Store' },
+      // PII fields
+      BillAddr: { Id: '95', Line1: 'Russ Sonnenschein', Line3: '5647 Cypress Hill Ave.', Lat: '37.42', Long: '-122.11' },
+      ShipAddr: { Line1: '5647 Cypress Hill Ave.', City: 'Middlefield', PostalCode: '94303' },
+      BillEmail: { Address: 'Familiystore@intuit.com' },
+      ...overrides,
+    };
+  }
+
+  it('removes all PII fields', () => {
+    const result = sanitizeInvoice(makeInvoice());
+    for (const field of INVOICE_PII) {
+      expect(result).not.toHaveProperty(field);
+    }
+  });
+
+  it('preserves non-PII fields', () => {
+    const result = sanitizeInvoice(makeInvoice());
+    expect(result).toHaveProperty('Id', '130');
+    expect(result).toHaveProperty('DocNumber', '1037');
+    expect(result).toHaveProperty('TotalAmt', 362.07);
+    expect(result).toHaveProperty('CustomerRef');
+  });
+
+  it('does not mutate the original object', () => {
+    const original = makeInvoice();
+    sanitizeInvoice(original);
+    expect(original).toHaveProperty('BillAddr');
+    expect(original).toHaveProperty('BillEmail');
+  });
+
+  it('handles missing PII fields gracefully', () => {
+    const sparse = { Id: '1', TotalAmt: 100 };
+    const result = sanitizeInvoice(sparse);
+    expect(result).toEqual(sparse);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sanitizeEstimate
+// ---------------------------------------------------------------------------
+
+describe('sanitizeEstimate', () => {
+  it('removes address and email fields', () => {
+    const estimate = {
+      Id: '100',
+      TotalAmt: 335.25,
+      BillAddr: { Line1: '5647 Cypress Hill Ave.' },
+      ShipAddr: { Line1: '5647 Cypress Hill Ave.' },
+      BillEmail: { Address: 'store@example.com' },
+    };
+    const result = sanitizeEstimate(estimate);
+    expect(result).not.toHaveProperty('BillAddr');
+    expect(result).not.toHaveProperty('ShipAddr');
+    expect(result).not.toHaveProperty('BillEmail');
+    expect(result).toHaveProperty('Id', '100');
+    expect(result).toHaveProperty('TotalAmt', 335.25);
+  });
+
+  it('does not mutate the original object', () => {
+    const original = { Id: '1', BillAddr: { Line1: '123 St.' } };
+    sanitizeEstimate(original);
+    expect(original).toHaveProperty('BillAddr');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// sanitizeBill
+// ---------------------------------------------------------------------------
+
+describe('sanitizeBill', () => {
+  it('removes VendorAddr and RemitToAddr', () => {
+    const bill = {
+      Id: '50',
+      TotalAmt: 200,
+      VendorRef: { value: '56', name: "Bob's Burger Joint" },
+      VendorAddr: { Line1: '123 Vendor St.' },
+      RemitToAddr: { Line1: '456 Remit Ln.' },
+      ShipAddr: { Line1: '789 Ship St.' },
+    };
+    const result = sanitizeBill(bill);
+    expect(result).not.toHaveProperty('VendorAddr');
+    expect(result).not.toHaveProperty('RemitToAddr');
+    expect(result).not.toHaveProperty('ShipAddr');
+    expect(result).toHaveProperty('Id', '50');
+    expect(result).toHaveProperty('VendorRef');
+  });
+
+  it('does not mutate the original object', () => {
+    const original = { Id: '1', VendorAddr: { Line1: '123 St.' } };
+    sanitizeBill(original);
+    expect(original).toHaveProperty('VendorAddr');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // wrapCallback -- single-entity (get) methods
 // ---------------------------------------------------------------------------
 
@@ -212,9 +321,41 @@ describe('wrapCallback (get methods)', () => {
     wrapped(null, null);
   });
 
+  it('sanitizes an Invoice result', () => {
+    const invoice = { Id: '1', TotalAmt: 100, BillAddr: { Line1: '123 St.' }, BillEmail: { Address: 'test@example.com' } };
+    const wrapped = wrapCallback('Invoice', false, (err, result) => {
+      expect(err).toBeNull();
+      expect(result).not.toHaveProperty('BillAddr');
+      expect(result).not.toHaveProperty('BillEmail');
+      expect(result).toHaveProperty('TotalAmt', 100);
+    });
+    wrapped(null, invoice);
+  });
+
+  it('sanitizes an Estimate result', () => {
+    const estimate = { Id: '100', TotalAmt: 335, BillAddr: { Line1: '456 Ave.' }, ShipAddr: { Line1: '456 Ave.' } };
+    const wrapped = wrapCallback('Estimate', false, (err, result) => {
+      expect(err).toBeNull();
+      expect(result).not.toHaveProperty('BillAddr');
+      expect(result).not.toHaveProperty('ShipAddr');
+      expect(result).toHaveProperty('TotalAmt', 335);
+    });
+    wrapped(null, estimate);
+  });
+
+  it('sanitizes a Bill result', () => {
+    const bill = { Id: '50', TotalAmt: 200, VendorAddr: { Line1: '789 Rd.' } };
+    const wrapped = wrapCallback('Bill', false, (err, result) => {
+      expect(err).toBeNull();
+      expect(result).not.toHaveProperty('VendorAddr');
+      expect(result).toHaveProperty('TotalAmt', 200);
+    });
+    wrapped(null, bill);
+  });
+
   it('returns the original callback for unknown entity types', () => {
     const cb = (err: any, result: any) => {};
-    const wrapped = wrapCallback('Invoice', false, cb);
+    const wrapped = wrapCallback('UnknownEntity', false, cb);
     expect(wrapped).toBe(cb);
   });
 });
@@ -344,9 +485,18 @@ describe('Proxy integration', () => {
           },
         });
       },
-      // Non-PII method -- should pass through untouched
       findInvoices(criteria: any, cb: Function) {
-        cb(null, { QueryResponse: { Invoice: [{ Id: '1', TotalAmt: 100 }] } });
+        cb(null, { QueryResponse: { Invoice: [{ Id: '1', TotalAmt: 100, BillAddr: { Line1: '123 St.' }, BillEmail: { Address: 'test@test.com' } }] } });
+      },
+      findEstimates(criteria: any, cb: Function) {
+        cb(null, { QueryResponse: { Estimate: [{ Id: '100', TotalAmt: 335, BillAddr: { Line1: '456 Ave.' }, ShipAddr: { Line1: '456 Ave.' } }] } });
+      },
+      findBills(criteria: any, cb: Function) {
+        cb(null, { QueryResponse: { Bill: [{ Id: '50', TotalAmt: 200, VendorAddr: { Line1: '789 Rd.' } }] } });
+      },
+      // Non-PII method -- should pass through untouched
+      findItems(criteria: any, cb: Function) {
+        cb(null, { QueryResponse: { Item: [{ Id: '5', Name: 'Rock Fountain' }] } });
       },
       someProperty: 'hello',
     };
@@ -360,6 +510,9 @@ describe('Proxy integration', () => {
       findEmployees: { entity: 'Employee', isSearch: true },
       getVendor: { entity: 'Vendor', isSearch: false },
       findVendors: { entity: 'Vendor', isSearch: true },
+      findInvoices: { entity: 'Invoice', isSearch: true },
+      findEstimates: { entity: 'Estimate', isSearch: true },
+      findBills: { entity: 'Bill', isSearch: true },
     };
 
     return new Proxy(qb, {
@@ -421,10 +574,40 @@ describe('Proxy integration', () => {
     });
   });
 
-  it('does not interfere with non-PII methods', () => {
+  it('strips BillAddr and BillEmail from findInvoices through proxy', () => {
     const proxy = wrapWithProxy(createMockQb());
     proxy.findInvoices([], (err: any, result: any) => {
-      expect(result.QueryResponse.Invoice).toEqual([{ Id: '1', TotalAmt: 100 }]);
+      const invoice = result.QueryResponse.Invoice[0];
+      expect(invoice).not.toHaveProperty('BillAddr');
+      expect(invoice).not.toHaveProperty('BillEmail');
+      expect(invoice).toHaveProperty('Id', '1');
+      expect(invoice).toHaveProperty('TotalAmt', 100);
+    });
+  });
+
+  it('strips BillAddr from findEstimates through proxy', () => {
+    const proxy = wrapWithProxy(createMockQb());
+    proxy.findEstimates([], (err: any, result: any) => {
+      const estimate = result.QueryResponse.Estimate[0];
+      expect(estimate).not.toHaveProperty('BillAddr');
+      expect(estimate).not.toHaveProperty('ShipAddr');
+      expect(estimate).toHaveProperty('TotalAmt', 335);
+    });
+  });
+
+  it('strips VendorAddr from findBills through proxy', () => {
+    const proxy = wrapWithProxy(createMockQb());
+    proxy.findBills([], (err: any, result: any) => {
+      const bill = result.QueryResponse.Bill[0];
+      expect(bill).not.toHaveProperty('VendorAddr');
+      expect(bill).toHaveProperty('TotalAmt', 200);
+    });
+  });
+
+  it('does not interfere with non-PII methods', () => {
+    const proxy = wrapWithProxy(createMockQb());
+    proxy.findItems([], (err: any, result: any) => {
+      expect(result.QueryResponse.Item).toEqual([{ Id: '5', Name: 'Rock Fountain' }]);
     });
   });
 
