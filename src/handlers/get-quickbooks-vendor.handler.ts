@@ -19,8 +19,9 @@ export async function getQuickbooksVendor(id: string): Promise<ToolResponse<any>
             error: formatError(err),
           });
         } else {
+          const { PrimaryAddr, PrimaryPhone, Mobile, Fax, PrimaryEmailAddr, AcctNum, ...sanitized } = vendor;
           resolve({
-            result: vendor,
+            result: sanitized,
             isError: false,
             error: null,
           });

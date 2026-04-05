@@ -28,11 +28,12 @@ export async function searchQuickbooksVendors(criteria: object | Array<Record<st
             error: formatError(err),
           });
         } else {
+          const list = vendors?.QueryResponse?.Vendor ?? [];
+          const sanitized = Array.isArray(list)
+            ? list.map(({ PrimaryAddr, PrimaryPhone, Mobile, Fax, PrimaryEmailAddr, AcctNum, ...rest }: any) => rest)
+            : list;
           resolve({
-            result:
-              vendors?.QueryResponse?.Vendor ??
-              vendors?.QueryResponse?.totalCount ??
-              [],
+            result: sanitized,
             isError: false,
             error: null,
           });

@@ -2,6 +2,8 @@
 
 This is a **read-only** fork of [intuit/quickbooks-online-mcp-server](https://github.com/intuit/quickbooks-online-mcp-server). All create, update, and delete operations have been removed at the source level. This server can only query and retrieve QuickBooks data.
 
+In addition to being read-only, this server strips sensitive personally identifiable information (PII) from responses before they reach the MCP client.
+
 ## Why?
 
 QuickBooks Online's OAuth scopes don't offer a read-only option. The `com.intuit.quickbooks.accounting` scope grants full read/write access. This fork enforces read-only access at the application layer by removing all write tools from the MCP server, so an LLM connected via MCP literally has no write operations available to call.
@@ -85,14 +87,16 @@ All `create_*`, `update_*`, and `delete_*` tools and their handler implementatio
 
 ## PII Filtering
 
-In addition to being read-only, this server strips sensitive personally identifiable information (PII) from Employee responses before they reach the MCP client. The following fields are removed from both `get_employee` and `search_employees` results:
+In addition to being read-only, this server strips sensitive personally identifiable information (PII) from responses before they reach the MCP client.
 
-- `SSN`
-- `PrimaryAddr`
-- `PrimaryPhone`
-- `Mobile`
-- `PrimaryEmailAddr`
-- `BirthDate`
+**Employee** (`get_employee`, `search_employees`) -- stripped fields:
+- `SSN`, `PrimaryAddr`, `PrimaryPhone`, `Mobile`, `PrimaryEmailAddr`, `BirthDate`
+
+**Customer** (`get_customer`, `search_customers`) -- stripped fields:
+- `PrimaryAddr`, `PrimaryPhone`, `Mobile`, `PrimaryEmailAddr`, `BirthDate`
+
+**Vendor** (`get_vendor`, `search_vendors`) -- stripped fields:
+- `PrimaryAddr`, `PrimaryPhone`, `Mobile`, `Fax`, `PrimaryEmailAddr`, `AcctNum`
 
 This filtering happens in the handler layer so these fields never leave the server.
 

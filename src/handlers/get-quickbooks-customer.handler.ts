@@ -19,8 +19,9 @@ export async function getQuickbooksCustomer(id: string): Promise<ToolResponse<an
             error: formatError(err),
           });
         } else {
+          const { PrimaryAddr, PrimaryPhone, Mobile, PrimaryEmailAddr, BirthDate, ...sanitized } = customer;
           resolve({
-            result: customer,
+            result: sanitized,
             isError: false,
             error: null,
           });

@@ -28,11 +28,12 @@ export async function searchQuickbooksCustomers(criteria: object | Array<Record<
             error: formatError(err),
           });
         } else {
+          const list = customers?.QueryResponse?.Customer ?? [];
+          const sanitized = Array.isArray(list)
+            ? list.map(({ PrimaryAddr, PrimaryPhone, Mobile, PrimaryEmailAddr, BirthDate, ...rest }: any) => rest)
+            : list;
           resolve({
-            result:
-              customers?.QueryResponse?.Customer ??
-              customers?.QueryResponse?.totalCount ??
-              [],
+            result: sanitized,
             isError: false,
             error: null,
           });
